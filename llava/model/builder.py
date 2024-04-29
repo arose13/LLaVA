@@ -51,14 +51,38 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             warnings.warn('There is `lora` in model name but no `model_base` is provided. If you are loading a LoRA model, please provide the `model_base` argument. Detailed instruction: https://github.com/haotian-liu/LLaVA#launch-a-model-worker-lora-weights-unmerged.')
         if 'lora' in model_name.lower() and model_base is not None:
             from llava.model.language_model.llava_llama import LlavaConfig
+            
             lora_cfg_pretrained = LlavaConfig.from_pretrained(model_path)
             tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=False)
+
             print('Loading LLaVA from base model...')
-            model = LlavaLlamaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=lora_cfg_pretrained, **kwargs)
+            lora_cfg_pretrained.pad_token_id = None
+            lora_cfg_pretrained.vocab_size = lora_cfg_pretrained.vocab_size - 1
+
+            model = LlavaLlamaForCausalLM.from_pretrained(
+                model_base,
+                low_cpu_mem_usage=True,
+                config=lora_cfg_pretrained,
+                **kwargs
+            )
             token_num, tokem_dim = model.lm_head.out_features, model.lm_head.in_features
             if model.lm_head.weight.shape[0] != token_num:
-                model.lm_head.weight = torch.nn.Parameter(torch.empty(token_num, tokem_dim, device=model.device, dtype=model.dtype))
-                model.model.embed_tokens.weight = torch.nn.Parameter(torch.empty(token_num, tokem_dim, device=model.device, dtype=model.dtype))
+                model.lm_head.weight = torch.nn.Parameter(
+                    torch.empty(
+                        token_num,
+                        tokem_dim,
+                        device=model.device,
+                        dtype=model.dtype
+                    )
+                )
+                model.model.embed_tokens.weight = torch.nn.Parameter(
+                    torch.empty(
+                        token_num,
+                        tokem_dim,
+                        device=model.device,
+                        dtype=model.dtype
+                    )
+                )
 
             print('Loading additional LLaVA weights...')
             if os.path.exists(os.path.join(model_path, 'non_lora_trainables.bin')):
@@ -85,7 +109,7 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             model = model.merge_and_unload()
             print('Model is loaded...')
         elif model_base is not None:
-            # this may be mm projector only
+            # this may be multimodal projector only
             print('Loading LLaVA from base model...')
             if 'mpt' in model_name.lower():
                 if not os.path.isfile(os.path.join(model_path, 'configuration_mpt.py')):
@@ -133,7 +157,6 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             print('Convert to FP16...')
             model.to(torch.float16)
         else:
-            use_fast = False
             if 'mpt' in model_name.lower():
                 tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
                 model = AutoModelForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, trust_remote_code=True, **kwargs)

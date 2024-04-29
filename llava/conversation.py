@@ -1,6 +1,6 @@
 import dataclasses
 from enum import auto, Enum
-from typing import List, Tuple
+from typing import List
 import base64
 from io import BytesIO
 from PIL import Image
@@ -10,7 +10,7 @@ class SeparatorStyle(Enum):
     """Different separator style."""
     SINGLE = auto()
     TWO = auto()
-    MPT = auto()
+    MPT = auto()  # MPT & Llama3
     PLAIN = auto()
     LLAMA_2 = auto()
 
@@ -91,6 +91,9 @@ class Conversation:
                 else:
                     ret += ""
             ret = ret.lstrip(self.sep)
+        elif self.sep_style == SeparatorStyle.LLAMA_3:\
+            # TODO IMPLEMENT (2024/04/28) - LLAMA_3 check https://github.com/haotian-liu/LLaVA/pull/1247/files
+            pass        
         elif self.sep_style == SeparatorStyle.PLAIN:
             seps = [self.sep, self.sep2]
             ret = self.system
@@ -277,6 +280,22 @@ conv_llava_llama_2 = Conversation(
     sep2="</s>",
 )
 
+# NOTE IMPLEMENT (2024/04/28) got this from https://github.com/mbzuai-oryx/LLaVA-pp/blob/main/LLaMA-3-V/conversation.py
+conv_llava_llama_3 = Conversation(
+    system="<|begin_of_text|><|start_header_id|>system<|end_header_id|>"
+        "You are a helpful superintelligent language and vision AI assistant. "
+        "You are able to understand the visual content that the user provides, "
+        "and assist the user with a variety of tasks using natural language."
+        "If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. "
+        "If you don't know the answer to a question, please don't share false information.",
+    roles=("<|start_header_id|>user<|end_header_id|>\n\n", "<|start_header_id|>assistant<|end_header_id|>\n\n"),
+    version="llama_v3",
+    messages=(),
+    offset=0,
+    sep_style=SeparatorStyle.MPT,
+    sep="<|eot_id|>",
+)
+
 conv_mpt = Conversation(
     system="""<|im_start|>system
 A conversation between a user and an LLM-based AI assistant. The assistant gives helpful and honest answers.""",
@@ -387,6 +406,7 @@ conv_templates = {
     "llava_v1": conv_llava_v1,
     "v1_mmtag": conv_llava_v1_mmtag,
     "llava_llama_2": conv_llava_llama_2,
+    "llava_llama_3": conv_llava_llama_3,
 
     "mpt": conv_mpt,
 }
